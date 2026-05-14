@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // ================================================================
 // src/lib/supabase.ts
 // Cliente de Supabase - conexión central
@@ -137,3 +138,12 @@ export interface UserList {
   rating?: number;
   created_at: string;
 }
+=======
+import { createClient } from '@supabase/supabase-js'
+
+// Vite usa import.meta.env para leer los archivos .env
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+>>>>>>> 72d59d17bad9a5b81be272395c4e3868e0dfe94c

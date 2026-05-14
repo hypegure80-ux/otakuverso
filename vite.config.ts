@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import path from "path";
 import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
@@ -17,3 +18,19 @@ export default defineConfig({
     },
   },
 });
+=======
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+// https://vite.dev/config/
+export default defineConfig(async () => {
+  const plugins = [react(), tailwindcss()];
+  try {
+    // @ts-ignore
+    const m = await import('./.vite-source-tags.js');
+    plugins.push(m.sourceTags());
+  } catch {}
+  return { plugins };
+})
+>>>>>>> 72d59d17bad9a5b81be272395c4e3868e0dfe94c
