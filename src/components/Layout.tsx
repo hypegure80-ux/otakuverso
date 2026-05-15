@@ -4,7 +4,7 @@ import { catalogData } from '../data';
 
 // ─── HEADER ───────────────────────────────────────────────
 export function Header() {
-  const { theme, toggleTheme, page, setPage, profile, setShowAuth, setAuthMode, logout, searchQuery, setSearchQuery, showSearch, setShowSearch } = useApp();
+  const { theme, toggleTheme, page, setPage, profile, isAdmin, setShowAuth, setAuthMode, logout, searchQuery, setSearchQuery, showSearch, setShowSearch } = useApp();
   const [mobileMenu, setMobileMenu] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<typeof catalogData>([]);
@@ -92,19 +92,31 @@ export function Header() {
               {isDark ? '☀️' : '🌙'}
             </button>
 
-            {/* User */}
-            {user ? (
+            {/* FIX 1 y 5: usa profile en lugar de user, y agrega botón de admin */}
+            {profile ? (
               <div className="relative group">
                 <button className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'hover:bg-dark-surface' : 'hover:bg-light-surface'}`}>
-                  <span className="text-xl">{user.avatar}</span>
-                  <span className={`text-sm font-medium hidden sm:block ${text}`}>{user.name}</span>
+                  <span className="text-xl">{profile.avatar}</span>
+                  <span className={`text-sm font-medium hidden sm:block ${text}`}>{profile.username}</span>
                 </button>
                 <div className={`absolute right-0 top-full mt-1 w-48 rounded-xl shadow-2xl border ${isDark ? 'bg-dark-card border-dark-border' : 'bg-light-card border-light-border'} opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all`}>
-                  <div className="p-3 border-b border-dark-border">
-                    <p className={`text-sm font-medium ${text}`}>{user.name}</p>
-                    <p className={`text-xs ${textMuted}`}>{user.email}</p>
+                  <div className={`p-3 border-b ${isDark ? 'border-dark-border' : 'border-light-border'}`}>
+                    <p className={`text-sm font-medium ${text}`}>{profile.username}</p>
+                    <p className={`text-xs ${textMuted}`}>@{profile.username}</p>
                   </div>
-                  <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-neon-red hover:bg-neon-red/10 rounded-b-xl">
+                  {/* FIX 5: botón de admin, solo visible si es admin */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setPage('admin'); }}
+                      className="w-full text-left px-3 py-2 text-sm text-neon-red hover:bg-neon-red/10"
+                    >
+                      ⚙️ Panel Admin
+                    </button>
+                  )}
+                  <button
+                    onClick={logout}
+                    className={`w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 ${isAdmin ? '' : 'rounded-b-xl'}`}
+                  >
                     Cerrar sesión
                   </button>
                 </div>
@@ -196,67 +208,125 @@ export function Header() {
 }
 
 // ─── AUTH MODAL ────────────────────────────────────────────
+// FIX 2, 3 y 4: reemplaza la versión vieja completa
+// - Agrega campo contraseña en login y registro
+// - Conecta correctamente login(email, password) y register(username, email, password)
+// - Agrega loading y mensajes de error en español
 export function AuthModal() {
   const { showAuth, setShowAuth, authMode, setAuthMode, login, register, theme } = useApp();
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const isDark = theme === 'dark';
 
   if (!showAuth) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-    if (authMode === 'login') login(name, email);
-    else register(name, email);
-    setName('');
-    setEmail('');
+    setError('');
+
+    if (!email.trim() || !password.trim()) { setError('Completa todos los campos'); return; }
+    if (authMode === 'register' && !username.trim()) { setError('El nombre de usuario es obligatorio'); return; }
+
+    setLoading(true);
+    let errorMsg: string | null;
+
+    if (authMode === 'login') {
+      errorMsg = await login(email, password);
+    } else {
+      errorMsg = await register(username, email, password);
+    }
+
+    setLoading(false);
+
+    if (errorMsg) {
+      if (errorMsg.includes('Invalid login credentials')) setError('Email o contraseña incorrectos');
+      else if (errorMsg.includes('User already registered')) setError('Este email ya está registrado');
+      else if (errorMsg.includes('Password should be at least')) setError('La contraseña debe tener al menos 6 caracteres');
+      else setError(errorMsg);
+    } else {
+      setUsername(''); setEmail(''); setPassword('');
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[100] modal-overlay flex items-center justify-center p-4" onClick={() => setShowAuth(false)}>
-      <div className={`w-full max-w-md rounded-2xl p-6 ${isDark ? 'bg-dark-card' : 'bg-light-card'} shadow-2xl`} onClick={e => e.stopPropagation()}>
+      <div
+        className={`w-full max-w-md rounded-2xl p-6 ${isDark ? 'bg-dark-card' : 'bg-light-card'} shadow-2xl`}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {authMode === 'login' ? '🔑 Iniciar Sesión' : '✨ Registro'}
+            {authMode === 'login' ? '🔑 Iniciar Sesión' : '✨ Crear Cuenta'}
           </h2>
           <button onClick={() => setShowAuth(false)} className="text-gray-400 hover:text-gray-300">✕</button>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Username solo en registro */}
+          {authMode === 'register' && (
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Nombre de usuario
+              </label>
+              <input
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
+                placeholder="Tu nombre otaku"
+              />
+            </div>
+          )}
+
           <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Nombre de usuario</label>
+            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Email
+            </label>
             <input
-              value={name} onChange={e => setName(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
-              placeholder="Tu nombre otaku"
-            />
-          </div>
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Email</label>
-            <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
               placeholder="tu@email.com"
             />
           </div>
-          {authMode === 'register' && (
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Contraseña</label>
-              <input
-                type="password"
-                className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
-                placeholder="••••••••"
-              />
+
+          {/* Contraseña en login Y en registro */}
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {/* Mensaje de error */}
+          {error && (
+            <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+              ⚠️ {error}
             </div>
           )}
-          <button type="submit" className="w-full py-3 rounded-xl bg-neon-red text-white font-bold hover:bg-neon-red/90 transition-colors">
-            {authMode === 'login' ? 'Entrar' : 'Crear Cuenta'}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-neon-red text-white font-bold hover:bg-neon-red/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '⏳ Cargando...' : authMode === 'login' ? 'Entrar' : 'Crear Cuenta'}
           </button>
         </form>
+
         <p className={`text-center mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           {authMode === 'login' ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
           <button
-            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+            onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(''); }}
             className="text-neon-red font-medium hover:underline"
           >
             {authMode === 'login' ? 'Regístrate' : 'Inicia sesión'}
