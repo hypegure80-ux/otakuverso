@@ -22,9 +22,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (data: { username?: string; bio?: string; avatar?: string }) => Promise<void>;
   userList: UserList[];
-  addToList: (catalogId: number, status: ListType) => Promise<void>;
-  removeFromList: (catalogId: number) => Promise<void>;
-  isInList: (catalogId: number) => boolean;
+  addToList: (catalogId: string, status: ListType) => Promise<void>;
+  removeFromList: (catalogId: string) => Promise<void>;
+  isInList: (catalogId: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userList, setUserList] = useState<UserList[]>([]);
 
-  const addToList = async (catalogId: number, status: ListType = 'want') => {
+  const addToList = async (catalogId: string, status: ListType = 'want') => {
     if (!user) return;
     await supabase.from('user_lists').upsert(
       { user_id: user.id, catalog_id: catalogId, status },
@@ -45,13 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUserList(user.id);
   };
 
-  const removeFromList = async (catalogId: number) => {
+  const removeFromList = async (catalogId: string) => {
     if (!user) return;
     await supabase.from('user_lists').delete().eq('user_id', user.id).eq('catalog_id', catalogId);
     setUserList(prev => prev.filter(i => i.catalog_id !== catalogId));
   };
 
-  const isInList = (catalogId: number) => userList.some(i => i.catalog_id === catalogId);
+  const isInList = (catalogId: string) => userList.some(i => i.catalog_id === catalogId);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

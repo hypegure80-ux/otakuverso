@@ -119,7 +119,7 @@ export interface ForumPost {
 export interface UserList {
   id: number;
   user_id: string;
-  catalog_id: number;
+  catalog_id: string;
   status: 'want' | 'watching' | 'completed';
   rating?: number;
   created_at: string;

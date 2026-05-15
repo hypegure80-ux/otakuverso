@@ -37,9 +37,9 @@ interface AppContextType {
   logout: () => Promise<void>;
   // Lista de usuario
   userList: UserList[];
-  addToList: (catalogId: number, status: 'want' | 'watching' | 'completed') => Promise<void>;
-  removeFromList: (catalogId: number) => Promise<void>;
-  getUserListStatus: (catalogId: number) => string | undefined;
+  addToList: (catalogId: string, status: 'want' | 'watching' | 'completed') => Promise<void>;
+  removeFromList: (catalogId: string) => Promise<void>;
+  getUserListStatus: (catalogId: string) => string | undefined;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -143,7 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPage('home');
   };
 
-  const addToList = async (catalogId: number, status: 'want' | 'watching' | 'completed') => {
+  const addToList = async (catalogId: string, status: 'want' | 'watching' | 'completed') => {
     if (!user) { setShowAuth(true); return; }
     await supabase.from('user_lists').upsert(
       { user_id: user.id, catalog_id: catalogId, status },
@@ -152,13 +152,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchUserList(user.id);
   };
 
-  const removeFromList = async (catalogId: number) => {
+  const removeFromList = async (catalogId: string) => {
     if (!user) return;
     await supabase.from('user_lists').delete().eq('user_id', user.id).eq('catalog_id', catalogId);
     setUserList(prev => prev.filter(i => i.catalog_id !== catalogId));
   };
 
-  const getUserListStatus = (catalogId: number) => userList.find(i => i.catalog_id === catalogId)?.status;
+  const getUserListStatus = (catalogId: string) => userList.find(i => i.catalog_id === catalogId)?.status;
 
   const isAdmin = profile?.role === 'admin';
 

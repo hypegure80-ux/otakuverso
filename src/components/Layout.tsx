@@ -4,8 +4,8 @@ import { catalogData } from '../data';
 
 // ─── HEADER ───────────────────────────────────────────────
 export function Header() {
-  // Extraer user para mostrar - usar user de useApp con cast
-  const { user, profile, logout, setShowAuth, setAuthMode } = useApp();
+  // Extraer todas las propiedades necesarias del contexto
+  const { theme, toggleTheme, page, setPage, user, profile, logout, setShowAuth, setAuthMode, searchQuery, setSearchQuery, showSearch, setShowSearch } = useApp();
   const displayName = profile?.username || user?.email?.split('@')[0] || 'Usuario';
   const displayAvatar = profile?.avatar || '👤';
   const displayEmail = user?.email || '';
