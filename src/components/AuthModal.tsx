@@ -1,21 +1,23 @@
-// ================================================================
-// CAMBIOS EN src/components/Layout.tsx
-// Solo reemplaza la función AuthModal completa.
-// El Header y Footer no cambian.
-// ================================================================
-
-// Busca en Layout.tsx la función AuthModal y REEMPLÁZALA con esta:
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { X } from 'lucide-react';
 
 export function AuthModal() {
-  const { showAuth, setShowAuth, authMode, setAuthMode, login, register, theme, isAdmin, setPage } = useApp();
+  const { login, register } = useAuth();
+  const { isDark } = useTheme();
+  const navigate = useNavigate();
+  
+  const [showModal, setShowModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const isDark = theme === 'dark';
 
-  if (!showAuth) return null;
+  if (!showModal) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,127 +35,93 @@ export function AuthModal() {
     }
 
     setLoading(false);
-
     if (errorMsg) {
-      // Traducir errores comunes de Supabase al español
-      if (errorMsg.includes('Invalid login credentials')) setError('Email o contraseña incorrectos');
-      else if (errorMsg.includes('User already registered')) setError('Este email ya está registrado');
-      else if (errorMsg.includes('Password should be at least')) setError('La contraseña debe tener al menos 6 caracteres');
-      else setError(errorMsg);
+      setError(errorMsg);
     } else {
-      setUsername(''); setEmail(''); setPassword('');
+      setShowModal(false);
+      navigate('/perfil');
     }
   };
 
+  const bg = isDark ? 'bg-dark-card' : 'bg-white';
+  const border = isDark ? 'border-dark-border' : 'border-light-border';
+  const text = isDark ? 'text-white' : 'text-gray-900';
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-500';
+  const inputBg = isDark ? 'bg-dark-surface' : 'bg-light-surface';
+
   return (
-    <div className="fixed inset-0 z-[100] modal-overlay flex items-center justify-center p-4" onClick={() => setShowAuth(false)}>
-      <div
-        className={`w-full max-w-md rounded-2xl p-6 ${isDark ? 'bg-dark-card' : 'bg-light-card'} shadow-2xl`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {authMode === 'login' ? '🔑 Iniciar Sesión' : '✨ Crear Cuenta'}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className={`w-full max-w-md rounded-2xl border ${bg} ${border} shadow-2xl`}>
+        <div className="flex items-center justify-between p-4 border-b border-inherit">
+          <h2 className={`text-lg font-bold ${text}`}>
+            {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
           </h2>
-          <button onClick={() => setShowAuth(false)} className="text-gray-400 hover:text-gray-300">✕</button>
+          <button onClick={() => setShowModal(false)} className="p-1 hover:bg-black/10 rounded">
+            <X className={`w-5 h-5 ${text}`} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo username solo en registro */}
-          {authMode === 'register' && (
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Nombre de usuario
-              </label>
-              <input
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
-                placeholder="Tu nombre otaku"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
-              placeholder="tu@email.com"
-            />
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
-              placeholder="••••••••"
-            />
-          </div>
-
-          {/* Mensaje de error */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              ⚠️ {error}
-            </div>
+            <div className="p-3 rounded-lg bg-red-500/20 text-red-400 text-sm">{error}</div>
           )}
+
+          {authMode === 'register' && (
+            <input
+              type="text"
+              placeholder="Nombre de usuario"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              className={`w-full px-4 py-3 rounded-xl border ${inputBg} ${border} ${text} placeholder:${textMuted} focus:outline-none focus:border-primary`}
+            />
+          )}
+
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className={`w-full px-4 py-3 rounded-xl border ${inputBg} ${border} ${text} placeholder:${textMuted} focus:outline-none focus:border-primary`}
+          />
+
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className={`w-full px-4 py-3 rounded-xl border ${inputBg} ${border} ${text} placeholder:${textMuted} focus:outline-none focus:border-primary`}
+          />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-neon-red text-white font-bold hover:bg-neon-red/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark disabled:opacity-50"
           >
-            {loading ? '⏳ Cargando...' : authMode === 'login' ? 'Entrar' : 'Crear Cuenta'}
+            {loading ? 'Cargando...' : authMode === 'login' ? 'Entrar' : 'Registrarse'}
           </button>
         </form>
 
-        <p className={`text-center mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-          {authMode === 'login' ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
-          <button
-            onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(''); }}
-            className="text-neon-red font-medium hover:underline"
-          >
-            {authMode === 'login' ? 'Regístrate' : 'Inicia sesión'}
-          </button>
-        </p>
+        <div className={`p-4 text-center border-t border-inherit ${textMuted}`}>
+          {authMode === 'login' ? (
+            <>
+              ¿No tienes cuenta?{' '}
+              <button onClick={() => setAuthMode('register')} className="text-primary hover:underline">
+                Regístrate
+              </button>
+            </>
+          ) : (
+            <>
+              ¿Ya tienes cuenta?{' '}
+              <button onClick={() => setAuthMode('login')} className="text-primary hover:underline">
+                Inicia sesión
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ================================================================
-// TAMBIÉN en el Header: reemplaza el botón de usuario en "Right actions"
-// Busca donde muestra el avatar del usuario y reemplaza esta parte:
-// ================================================================
-
-/*
-  ANTES (en Header, busca el botón del usuario):
-    const { ..., user, ... } = useApp();
-    ...
-    {user ? (
-      <div className="...">
-        <span>{user.avatar}</span>
-        ...
-        <button onClick={logout}>Cerrar sesión</button>
-      </div>
-    ) : ( <button onClick={() => setShowAuth(true)}>...</button> )}
-
-  DESPUÉS — agrega esto al principio del Header:
-    const { ..., profile, logout, isAdmin, setPage, ... } = useApp();
-
-  Y en el menú de usuario, agrega el botón de admin:
-    {isAdmin && (
-      <button onClick={() => { setPage('admin'); ... }}>
-        ⚙️ Panel Admin
-      </button>
-    )}
-*/
+// Also export for external use
+export default AuthModal;

@@ -1,24 +1,11 @@
-<<<<<<< HEAD
-// ================================================================
-// src/lib/supabase.ts
-// Cliente de Supabase - conexión central
-// Coloca este archivo en: src/lib/supabase.ts
-// ================================================================
+import { createClient } from '@supabase/supabase-js'
 
-import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// ─── CONFIGURACIÓN ───────────────────────────────────────────
-// Obtén estos valores en: Supabase Dashboard > Settings > API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Faltan las variables de entorno VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en tu archivo .env');
-}
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// ─── TIPOS (espejo de las tablas de Supabase) ────────────────
+// Tipos
 export interface Profile {
   id: string;
   username: string;
@@ -37,9 +24,6 @@ export interface NewsItem {
   image: string;
   featured: boolean;
   tags: string[];
-  created_at: string;
-  updated_at: string;
-  comments?: Comment[];
 }
 
 export interface Comment {
@@ -56,7 +40,7 @@ export interface Comment {
 export interface CatalogItem {
   id: number;
   title: string;
-  title_jp: string;
+  title_jp?: string;
   type: 'anime' | 'manga' | 'webtoon' | 'manhua' | 'manhwa' | 'donghua';
   genres: string[];
   rating: number;
@@ -70,14 +54,12 @@ export interface CatalogItem {
   image: string;
   popularity: number;
   origin: 'japan' | 'korea' | 'china';
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Mangaka {
   id: number;
   name: string;
-  name_jp: string;
+  name_jp?: string;
   photo: string;
   birth_date: string;
   nationality: string;
@@ -85,8 +67,6 @@ export interface Mangaka {
   works: string[];
   awards: string[];
   active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Opening {
@@ -98,8 +78,6 @@ export interface Opening {
   season: string;
   year: number;
   video_url: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface GalleryImage {
@@ -110,8 +88,6 @@ export interface GalleryImage {
   gradient: string;
   emoji: string;
   likes: number;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ForumPost {
@@ -126,8 +102,6 @@ export interface ForumPost {
   views: number;
   likes: number;
   pinned: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface UserList {
@@ -138,12 +112,3 @@ export interface UserList {
   rating?: number;
   created_at: string;
 }
-=======
-import { createClient } from '@supabase/supabase-js'
-
-// Vite usa import.meta.env para leer los archivos .env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
->>>>>>> 72d59d17bad9a5b81be272395c4e3868e0dfe94c

@@ -1,140 +1,131 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  bio: string;
-  joined: string;
-  favorites: string[];
-  watchlist: string[];
-  completed: string[];
-  watching: string[];
-}
+import { supabase, type Profile, type UserList, type CatalogItem } from '../lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
 
 interface AuthContextType {
+  session: Session | null;
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
-  logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
-  addToList: (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => void;
-  removeFromList: (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => void;
-  isInList: (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => boolean;
+  profile: Profile | null;
+  isAdmin: boolean;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (username: string, email: string, password: string) => Promise<string | null>;
+  logout: () => Promise<void>;
+  updateUser: (data: { username?: string; bio?: string; avatar?: string }) => Promise<void>;
+  userList: UserList[];
+  addToList: (catalogId: number, status: 'want' | 'watching' | 'completed') => Promise<void>;
+  removeFromList: (catalogId: number) => Promise<void>;
+  isInList: (catalogId: number) => boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  login: () => false,
-  register: () => false,
-  logout: () => {},
-  updateUser: () => {},
-  addToList: () => {},
-  removeFromList: () => {},
-  isInList: () => false,
-});
-
-const AVATARS = [
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80',
-  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=200&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80',
-];
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('otakuverse-user');
-      return saved ? JSON.parse(saved) : null;
-    }
-    return null;
-  });
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [userList, setUserList] = useState<UserList[]>([]);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('otakuverse-user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('otakuverse-user');
-    }
-  }, [user]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        fetchUserList(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
-  const login = (email: string, password: string) => {
-    const users = JSON.parse(localStorage.getItem('otakuverse-users') || '[]');
-    const found = users.find((u: User) => u.email === email);
-    if (found) {
-      setUser(found);
-      return true;
-    }
-    return false;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        fetchUserList(session.user.id);
+      } else {
+        setProfile(null);
+        setUserList([]);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function fetchProfile(userId: string) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) setProfile(data as Profile);
+    setLoading(false);
+  }
+
+  async function fetchUserList(userId: string) {
+    const { data } = await supabase.from('user_lists').select('*').eq('user_id', userId);
+    if (data) setUserList(data as UserList[]);
+  }
+
+  const login = async (email: string, password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return error.message;
+    return null;
   };
 
-  const register = (name: string, email: string, password: string) => {
-    const users = JSON.parse(localStorage.getItem('otakuverse-users') || '[]');
-    if (users.find((u: User) => u.email === email)) return false;
-    
-    const newUser: User = {
-      id: 'u' + Date.now(),
-      name,
+  const register = async (username: string, email: string, password: string): Promise<string | null> => {
+    const avatars = ['🧑‍💻', '🎮', '🎌', '⛩️', '🌸', '🐉', '🦊', '👾'];
+    const avatar = avatars[Math.floor(Math.random() * avatars.length)];
+    const { error } = await supabase.auth.signUp({
       email,
-      avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)],
-      bio: 'Nuevo miembro de OtakuVerse',
-      joined: new Date().toISOString().split('T')[0],
-      favorites: [],
-      watchlist: [],
-      completed: [],
-      watching: [],
-    };
-    users.push(newUser);
-    localStorage.setItem('otakuverse-users', JSON.stringify(users));
-    setUser(newUser);
-    return true;
+      password,
+      options: { data: { username, avatar } }
+    });
+    if (error) return error.message;
+    return null;
   };
 
-  const logout = () => setUser(null);
-
-  const updateUser = (updates: Partial<User>) => {
-    if (user) {
-      const updated = { ...user, ...updates };
-      setUser(updated);
-      const users = JSON.parse(localStorage.getItem('otakuverse-users') || '[]');
-      const idx = users.findIndex((u: User) => u.id === user.id);
-      if (idx >= 0) users[idx] = updated;
-      localStorage.setItem('otakuverse-users', JSON.stringify(users));
-    }
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUserList([]);
   };
 
-  const addToList = (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => {
-    if (user) {
-      const updated = { ...user, [list]: [...user[list], id] };
-      setUser(updated);
-      const users = JSON.parse(localStorage.getItem('otakuverse-users') || '[]');
-      const idx = users.findIndex((u: User) => u.id === user.id);
-      if (idx >= 0) users[idx] = updated;
-      localStorage.setItem('otakuverse-users', JSON.stringify(users));
-    }
+  const updateUser = async (data: { username?: string; bio?: string; avatar?: string }) => {
+    if (!user) return;
+    await supabase.from('profiles').update(data).eq('id', user.id);
+    fetchProfile(user.id);
   };
 
-  const removeFromList = (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => {
-    if (user) {
-      const updated = { ...user, [list]: user[list].filter(i => i !== id) };
-      setUser(updated);
-      const users = JSON.parse(localStorage.getItem('otakuverse-users') || '[]');
-      const idx = users.findIndex((u: User) => u.id === user.id);
-      if (idx >= 0) users[idx] = updated;
-      localStorage.setItem('otakuverse-users', JSON.stringify(users));
-    }
+  const addToList = async (catalogId: number, status: 'want' | 'watching' | 'completed') => {
+    if (!user) return;
+    await supabase.from('user_lists').upsert(
+      { user_id: user.id, catalog_id: catalogId, status },
+      { onConflict: 'user_id,catalog_id' }
+    );
+    fetchUserList(user.id);
   };
 
-  const isInList = (list: 'favorites' | 'watchlist' | 'completed' | 'watching', id: string) => {
-    return user ? user[list].includes(id) : false;
+  const removeFromList = async (catalogId: number) => {
+    if (!user) return;
+    await supabase.from('user_lists').delete().eq('user_id', user.id).eq('catalog_id', catalogId);
+    setUserList(prev => prev.filter(i => i.catalog_id !== catalogId));
   };
+
+  const isInList = (catalogId: number) => userList.some(i => i.catalog_id === catalogId);
+
+  const isAdmin = profile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateUser, addToList, removeFromList, isInList }}>
+    <AuthContext.Provider value={{
+      session, user, profile, isAdmin, loading, login, register, logout, updateUser,
+      userList, addToList, removeFromList, isInList
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be inside AuthProvider');
+  return ctx;
+}
