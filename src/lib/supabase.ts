@@ -1,18 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type User, type Session } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Tipos
+// Re-exportar User y Session de Supabase
+export type { User, Session }
+
+// Tipos personalizados
 export interface Profile {
   id: string;
   username: string;
   avatar: string;
   role: 'user' | 'admin';
   created_at: string;
+  bio?: string;
+  joined?: string;
 }
+
+export type ExtendedUser = User & {
+  name?: string;
+  avatar?: string;
+  bio?: string;
+  joined?: string;
+};
 
 export interface NewsItem {
   id: number;

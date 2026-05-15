@@ -4,7 +4,11 @@ import { catalogData } from '../data';
 
 // ─── HEADER ───────────────────────────────────────────────
 export function Header() {
-  const { theme, toggleTheme, page, setPage, profile, setShowAuth, setAuthMode, logout, searchQuery, setSearchQuery, showSearch, setShowSearch } = useApp();
+  // Extraer user para mostrar - usar user de useApp con cast
+  const { user, profile, logout, setShowAuth, setAuthMode } = useApp();
+  const displayName = profile?.username || user?.email?.split('@')[0] || 'Usuario';
+  const displayAvatar = profile?.avatar || '👤';
+  const displayEmail = user?.email || '';
   const [mobileMenu, setMobileMenu] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<typeof catalogData>([]);
@@ -96,13 +100,13 @@ export function Header() {
             {user ? (
               <div className="relative group">
                 <button className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'hover:bg-dark-surface' : 'hover:bg-light-surface'}`}>
-                  <span className="text-xl">{user.avatar}</span>
-                  <span className={`text-sm font-medium hidden sm:block ${text}`}>{user.name}</span>
+                  <span className="text-xl">{displayAvatar}</span>
+                  <span className={`text-sm font-medium hidden sm:block ${text}`}>{displayName}</span>
                 </button>
                 <div className={`absolute right-0 top-full mt-1 w-48 rounded-xl shadow-2xl border ${isDark ? 'bg-dark-card border-dark-border' : 'bg-light-card border-light-border'} opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all`}>
                   <div className="p-3 border-b border-dark-border">
-                    <p className={`text-sm font-medium ${text}`}>{user.name}</p>
-                    <p className={`text-xs ${textMuted}`}>{user.email}</p>
+                    <p className={`text-sm font-medium ${text}`}>{displayName}</p>
+                    <p className={`text-xs ${textMuted}`}>{displayEmail}</p>
                   </div>
                   <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-neon-red hover:bg-neon-red/10 rounded-b-xl">
                     Cerrar sesión
@@ -198,19 +202,21 @@ export function Header() {
 // ─── AUTH MODAL ────────────────────────────────────────────
 export function AuthModal() {
   const { showAuth, setShowAuth, authMode, setAuthMode, login, register, theme } = useApp();
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const isDark = theme === 'dark';
 
   if (!showAuth) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-    if (authMode === 'login') login(name, email);
-    else register(name, email);
-    setName('');
+    if (!username.trim() || !email.trim() || !password.trim()) return;
+    if (authMode === 'login') await login(email, password);
+    else await register(username, email, password);
+    setUsername('');
     setEmail('');
+    setPassword('');
   };
 
   return (
@@ -226,7 +232,7 @@ export function AuthModal() {
           <div>
             <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Nombre de usuario</label>
             <input
-              value={name} onChange={e => setName(e.target.value)}
+              value={username} onChange={e => setUsername(e.target.value)}
               className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-dark-surface border-dark-border text-white' : 'bg-light-surface border-light-border text-gray-900'} focus:outline-none focus:border-neon-red`}
               placeholder="Tu nombre otaku"
             />

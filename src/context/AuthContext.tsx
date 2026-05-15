@@ -1,10 +1,19 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { supabase, type Profile, type UserList, type CatalogItem } from '../lib/supabase';
+import { supabase, type Profile, type UserList } from '../lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
+
+type ExtendedUser = User & {
+  name?: string;
+  bio?: string;
+  avatar?: string;
+  joined?: string;
+};
+
+type ListType = 'want' | 'watching' | 'completed';
 
 interface AuthContextType {
   session: Session | null;
-  user: User | null;
+  user: ExtendedUser | null;
   profile: Profile | null;
   isAdmin: boolean;
   loading: boolean;
@@ -13,7 +22,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (data: { username?: string; bio?: string; avatar?: string }) => Promise<void>;
   userList: UserList[];
-  addToList: (catalogId: number, status: 'want' | 'watching' | 'completed') => Promise<void>;
+  addToList: (catalogId: number, status: ListType) => Promise<void>;
   removeFromList: (catalogId: number) => Promise<void>;
   isInList: (catalogId: number) => boolean;
 }
@@ -22,16 +31,36 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [userList, setUserList] = useState<UserList[]>([]);
 
+  const addToList = async (catalogId: number, status: ListType = 'want') => {
+    if (!user) return;
+    await supabase.from('user_lists').upsert(
+      { user_id: user.id, catalog_id: catalogId, status },
+      { onConflict: 'user_id,catalog_id' }
+    );
+    fetchUserList(user.id);
+  };
+
+  const removeFromList = async (catalogId: number) => {
+    if (!user) return;
+    await supabase.from('user_lists').delete().eq('user_id', user.id).eq('catalog_id', catalogId);
+    setUserList(prev => prev.filter(i => i.catalog_id !== catalogId));
+  };
+
+  const isInList = (catalogId: number) => userList.some(i => i.catalog_id === catalogId);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
+        const extUser = session.user as ExtendedUser;
+        extUser.name = session.user.user_metadata?.username || session.user.email?.split('@')[0];
+        extUser.avatar = session.user.user_metadata?.avatar || '🧑‍💻';
+        setUser(extUser);
         fetchProfile(session.user.id);
         fetchUserList(session.user.id);
       } else {
@@ -41,8 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
+        const extUser = session.user as ExtendedUser;
+        extUser.name = session.user.user_metadata?.username || session.user.email?.split('@')[0];
+        extUser.avatar = session.user.user_metadata?.avatar || '🧑‍💻';
+        setUser(extUser);
         fetchProfile(session.user.id);
         fetchUserList(session.user.id);
       } else {
@@ -92,25 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (data: { username?: string; bio?: string; avatar?: string }) => {
     if (!user) return;
     await supabase.from('profiles').update(data).eq('id', user.id);
+    const updated = { ...user, ...data };
+    setUser(updated);
     fetchProfile(user.id);
   };
-
-  const addToList = async (catalogId: number, status: 'want' | 'watching' | 'completed') => {
-    if (!user) return;
-    await supabase.from('user_lists').upsert(
-      { user_id: user.id, catalog_id: catalogId, status },
-      { onConflict: 'user_id,catalog_id' }
-    );
-    fetchUserList(user.id);
-  };
-
-  const removeFromList = async (catalogId: number) => {
-    if (!user) return;
-    await supabase.from('user_lists').delete().eq('user_id', user.id).eq('catalog_id', catalogId);
-    setUserList(prev => prev.filter(i => i.catalog_id !== catalogId));
-  };
-
-  const isInList = (catalogId: number) => userList.some(i => i.catalog_id === catalogId);
 
   const isAdmin = profile?.role === 'admin';
 
